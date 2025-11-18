@@ -1,11 +1,12 @@
 "use client"
 
-import type { Player } from "@/lib/game-state"
+import type { PlayerSymbol } from "@/lib/types"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 interface GameOverDialogProps {
-  winner: Player | "draw" | null
-  playerSymbol: Player
+  winner: PlayerSymbol | "draw" | null
+  playerSymbol: PlayerSymbol
   playerScore: number
   opponentScore: number
   onContinue: () => void
@@ -35,7 +36,7 @@ export function GameOverDialog({
             <h2
               className={cn(
                 "text-4xl font-bold pixel-text mb-2",
-                playerWon ? "text-[#0f380f]" : isDraw ? "text-[#306230]" : "text-red-900",
+                playerWon ? "text-[#0f380f]" : isDraw ? "text-[#306230]" : "text-red-900"
               )}
             >
               {isDraw ? "DRAW!" : playerWon ? "YOU WIN!" : "YOU LOSE!"}
@@ -98,8 +99,4 @@ export function GameOverDialog({
       </div>
     </div>
   )
-}
-
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ")
 }

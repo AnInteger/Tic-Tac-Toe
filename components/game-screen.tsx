@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useGame } from "@/hooks/use-game"
-import type { Player } from "@/lib/game-state"
+import type { PlayerSymbol } from "@/lib/types"
 import { GameBoard } from "./game-board"
 import { GameInfo } from "./game-info"
 import { GameOverDialog } from "./game-over-dialog"
@@ -11,7 +11,7 @@ import { PunishmentScreen } from "./punishment-screen"
 interface GameScreenProps {
   gameId: string
   playerId: string
-  playerSymbol: Player
+  playerSymbol: PlayerSymbol
   onGameEnd: () => void
 }
 
@@ -21,19 +21,20 @@ export function GameScreen({ gameId, playerId, playerSymbol, onGameEnd }: GameSc
   const [showGameOver, setShowGameOver] = useState(false)
   const [showPunishment, setShowPunishment] = useState(false)
 
-  const opponentSymbol: Player = playerSymbol === "X" ? "O" : "X"
+  const opponentSymbol: PlayerSymbol = playerSymbol === "X" ? "O" : "X"
 
   useEffect(() => {
     if (!game || game.status !== "playing") return
 
-    const isMyTurn = game.currentPlayer === playerSymbol
+    const isMyTurn = game.current_turn === playerSymbol
     if (!isMyTurn) {
       setTimeLeft(5)
       return
     }
 
     const interval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - game.lastMoveTime) / 1000)
+      const turnStarted = new Date(game.turn_started_at).getTime()
+      const elapsed = Math.floor((Date.now() - turnStarted) / 1000)
       const remaining = Math.max(0, 5 - elapsed)
 
       setTimeLeft(remaining)
@@ -54,15 +55,15 @@ export function GameScreen({ gameId, playerId, playerSymbol, onGameEnd }: GameSc
 
   const handleCellClick = useCallback(
     (position: number) => {
-      if (game?.currentPlayer === playerSymbol && !loading) {
+      if (game?.current_turn === playerSymbol && !loading) {
         makeMove(position)
       }
     },
-    [game, playerSymbol, loading, makeMove],
+    [game, playerSymbol, loading, makeMove]
   )
 
   const handleContinueGame = useCallback(async () => {
-    const scoreDiff = game ? Math.abs(game.players[playerSymbol].score - game.players[opponentSymbol].score) : 0
+    const scoreDiff = game ? Math.abs(game.player_x_score - game.player_o_score) : 0
 
     if (scoreDiff >= 5) {
       setShowGameOver(false)
@@ -73,7 +74,7 @@ export function GameScreen({ gameId, playerId, playerSymbol, onGameEnd }: GameSc
         setShowGameOver(false)
       }
     }
-  }, [game, playerSymbol, opponentSymbol, handleContinue])
+  }, [game, handleContinue])
 
   const handlePunishmentComplete = useCallback(async () => {
     setShowPunishment(false)
@@ -98,8 +99,8 @@ export function GameScreen({ gameId, playerId, playerSymbol, onGameEnd }: GameSc
     )
   }
 
-  const playerScore = game.players[playerSymbol].score
-  const opponentScore = game.players[opponentSymbol].score
+  const playerScore = playerSymbol === "X" ? game.player_x_score : game.player_o_score
+  const opponentScore = playerSymbol === "X" ? game.player_o_score : game.player_x_score
   const scoreDiff = Math.abs(playerScore - opponentScore)
   const needsPunishment = scoreDiff >= 5
   const playerLost = game.winner && game.winner !== "draw" && game.winner !== playerSymbol
@@ -120,7 +121,7 @@ export function GameScreen({ gameId, playerId, playerSymbol, onGameEnd }: GameSc
               <GameInfo
                 playerSymbol={playerSymbol}
                 opponentSymbol={opponentSymbol}
-                currentPlayer={game.currentPlayer}
+                currentPlayer={game.current_turn}
                 playerScore={playerScore}
                 opponentScore={opponentScore}
                 timeLeft={timeLeft}
@@ -130,8 +131,8 @@ export function GameScreen({ gameId, playerId, playerSymbol, onGameEnd }: GameSc
               <GameBoard
                 board={game.board}
                 onCellClick={handleCellClick}
-                disabled={game.currentPlayer !== playerSymbol || loading}
-                currentPlayer={game.currentPlayer}
+                disabled={game.current_turn !== playerSymbol || loading}
+                currentPlayer={game.current_turn}
               />
 
               {/* Game Status */}

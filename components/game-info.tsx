@@ -1,11 +1,12 @@
 "use client"
 
-import type { Player } from "@/lib/game-state"
+import type { PlayerSymbol } from "@/lib/types"
+import { cn } from "@/lib/utils"
 
 interface GameInfoProps {
-  playerSymbol: Player
-  opponentSymbol: Player
-  currentPlayer: Player
+  playerSymbol: PlayerSymbol
+  opponentSymbol: PlayerSymbol
+  currentPlayer: PlayerSymbol
   playerScore: number
   opponentScore: number
   timeLeft: number
@@ -51,7 +52,7 @@ export function GameInfo({
             <p
               className={cn(
                 "text-3xl font-bold pixel-text",
-                timeLeft <= 2 ? "text-red-600 animate-pulse" : "text-[#9bbc0f]",
+                timeLeft <= 2 ? "text-red-600 animate-pulse" : "text-[#9bbc0f]"
               )}
             >
               {timeLeft}s
@@ -67,8 +68,4 @@ export function GameInfo({
       )}
     </div>
   )
-}
-
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ")
 }

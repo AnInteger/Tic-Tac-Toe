@@ -12,7 +12,6 @@ interface MatchmakingScreenProps {
 export function MatchmakingScreen({ playerId, onMatchFound }: MatchmakingScreenProps) {
   const { isSearching, matchResult, error, startMatchmaking, cancelMatchmaking } = useMatchmaking(playerId)
 
-  // Notify parent when match is found
   useEffect(() => {
     if (matchResult?.matched && matchResult.gameId && matchResult.yourSymbol) {
       onMatchFound(matchResult.gameId, matchResult.yourSymbol)

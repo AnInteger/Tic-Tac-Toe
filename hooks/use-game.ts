@@ -1,115 +1,100 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import type { GameState } from "@/lib/game-state"
+import { createClient } from "@/lib/supabase/client"
+import { makeMove as makeMoveAction, handleTimeout as handleTimeoutAction, continueGame } from "@/app/actions/game"
+import type { Game } from "@/lib/types"
 
-export function useGame(gameId: string | null, playerId: string | null) {
-  const [game, setGame] = useState<GameState | null>(null)
+export function useGame(gameId: string, playerId: string) {
+  const [game, setGame] = useState<Game | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch game state
-  const fetchGame = useCallback(async () => {
-    if (!gameId) return
+  useEffect(() => {
+    const fetchGame = async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from("games")
+        .select("*")
+        .eq("id", gameId)
+        .single()
 
-    try {
-      const response = await fetch(`/api/game/${gameId}`)
-      if (!response.ok) throw new Error("Failed to fetch game")
+      if (error) {
+        console.error("[v0] Error fetching game:", error)
+        setError(error.message)
+      } else {
+        setGame(data as Game)
+      }
+    }
 
-      const data = await response.json()
-      setGame(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error")
+    fetchGame()
+  }, [gameId])
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    const channel = supabase
+      .channel(`game-${gameId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "games",
+          filter: `id=eq.${gameId}`,
+        },
+        (payload) => {
+          console.log("[v0] Game updated:", payload)
+          setGame(payload.new as Game)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
     }
   }, [gameId])
 
-  // Make a move
   const makeMove = useCallback(
     async (position: number) => {
-      if (!gameId || !playerId) return
-
       setLoading(true)
       try {
-        const response = await fetch(`/api/game/${gameId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playerId, position }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Failed to make move")
+        const result = await makeMoveAction(gameId, playerId, position)
+        if (!result.success) {
+          throw new Error(result.error)
         }
-
-        const data = await response.json()
-        setGame(data)
       } catch (err) {
+        console.error("[v0] Move error:", err)
         setError(err instanceof Error ? err.message : "Unknown error")
       } finally {
         setLoading(false)
       }
     },
-    [gameId, playerId],
+    [gameId, playerId]
   )
 
-  // Handle timeout
   const handleTimeout = useCallback(async () => {
-    if (!gameId || !playerId) return
-
     try {
-      const response = await fetch(`/api/game/${gameId}/timeout`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId }),
-      })
-
-      if (!response.ok) throw new Error("Failed to handle timeout")
-
-      const data = await response.json()
-      setGame(data)
+      await handleTimeoutAction(gameId, playerId)
     } catch (err) {
+      console.error("[v0] Timeout error:", err)
       setError(err instanceof Error ? err.message : "Unknown error")
     }
   }, [gameId, playerId])
 
-  // Continue or end game
   const handleContinue = useCallback(
     async (decision: "continue" | "end") => {
-      if (!gameId || !playerId) return
-
       try {
-        const response = await fetch(`/api/game/${gameId}/continue`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playerId, decision }),
-        })
-
-        if (!response.ok) throw new Error("Failed to continue")
-
-        const data = await response.json()
-
-        if (data.ended) {
-          setGame(null)
-          return true // Game ended
-        } else {
-          setGame(data)
-          return false // Game continues
-        }
+        const result = await continueGame(gameId, playerId, decision)
+        return result.ended || false
       } catch (err) {
+        console.error("[v0] Continue error:", err)
         setError(err instanceof Error ? err.message : "Unknown error")
         return false
       }
     },
-    [gameId, playerId],
+    [gameId, playerId]
   )
-
-  // Poll for game updates
-  useEffect(() => {
-    if (!gameId || !game || game.status === "finished") return
-
-    const interval = setInterval(fetchGame, 1000)
-    return () => clearInterval(interval)
-  }, [gameId, game, fetchGame])
 
   return {
     game,
@@ -118,6 +103,5 @@ export function useGame(gameId: string | null, playerId: string | null) {
     makeMove,
     handleTimeout,
     handleContinue,
-    refetch: fetchGame,
   }
 }
